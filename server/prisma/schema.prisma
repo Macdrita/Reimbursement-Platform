@@ -6,7 +6,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = process.env("DATABASE_URL")
 }
 
 enum Role {
@@ -37,6 +37,7 @@ model User {
 
   claimsSubmitted Claim[] @relation("SubmittedClaims")
   claimsReviewed  Claim[] @relation("ReviewedClaims")
+  claimsRedirectedTo Claim[] @relation("RedirectedClaims")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -55,6 +56,11 @@ model Claim {
 
   reviewerId    String?
   reviewer      User?       @relation("ReviewedClaims", fields: [reviewerId], references: [id])
+
+  isRedirected   Boolean     @default(false)
+  redirectedToId String?
+  redirectedTo   User?       @relation("RedirectedClaims", fields: [redirectedToId], references: [id])
+  redirectReason String?
 
   reviewComment String?
   createdAt     DateTime    @default(now())
