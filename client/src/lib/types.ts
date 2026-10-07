@@ -1,4 +1,10 @@
-export type Role = "EMPLOYEE" | "MANAGER" | "HOD" | "FINANCE" | "SUPERADMIN";
+export type Role =
+  | "EMPLOYEE"
+  | "MANAGER"
+  | "HOD"
+  | "FINANCE"
+  | "FINANCE_ADMIN"
+  | "SUPERADMIN";
 
 export type ClaimStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -48,6 +54,8 @@ export interface Claim {
   reviewComment: string | null;
   createdAt: string;
   updatedAt: string;
+  payoutBatchId?: string | null;
+  isFlagged?: boolean;
 }
 
 export interface Manager {
@@ -55,4 +63,41 @@ export interface Manager {
   name: string;
   email: string;
   role: Role;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  budget: number;
+  hodId: string | null;
+  hod?: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface PolicyRule {
+  id: string;
+  category: string;
+  maxLimit: number;
+  requireReceipt: boolean;
+  requireGstin: boolean;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  action: string;
+  metadata: Record<string, unknown>;
+  ipAddress: string | null;
+  createdAt: string;
+  user: { id: string; name: string; email: string };
+}
+
+export interface PayoutBatch {
+  id: string;
+  status: "DRAFT" | "PROCESSING" | "COMPLETED" | "FAILED";
+  totalAmount: number;
+  executedById: string;
+  createdAt: string;
+  claimIds: string[];
 }

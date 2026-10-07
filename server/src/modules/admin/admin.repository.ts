@@ -8,6 +8,22 @@ import {
 export const createDepartment = (data: CreateDepartmentInput) =>
   prisma.department.create({ data });
 
+export const listDepartments = () =>
+  prisma.department.findMany({
+    orderBy: { name: "asc" },
+    include: { hod: { select: { id: true, name: true } } },
+  });
+
+export const listPolicyRules = () =>
+  prisma.policyRule.findMany({ orderBy: { category: "asc" } });
+
+export const listAuditLogs = () =>
+  prisma.auditLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+
 export const upsertPolicyRule = (data: UpsertPolicyRuleInput) =>
   prisma.$transaction(async (transaction) => {
     const existing = await transaction.policyRule.findFirst({

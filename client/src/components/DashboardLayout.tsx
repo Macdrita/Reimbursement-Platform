@@ -11,6 +11,8 @@ import {
   Receipt,
   User,
   ChevronDown,
+  Wallet,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,6 +31,7 @@ const roleColors: Record<string, string> = {
   MANAGER: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
   HOD: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   FINANCE: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  FINANCE_ADMIN: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   SUPERADMIN: "bg-rose-500/20 text-rose-400 border-rose-500/30",
 };
 
@@ -48,6 +51,7 @@ export default function DashboardLayout({
   const isManager = ["MANAGER", "HOD", "FINANCE", "SUPERADMIN"].includes(
     user.role
   );
+  const canAccessFinance = ["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role);
 
   const navItems = [
     {
@@ -71,6 +75,24 @@ export default function DashboardLayout({
             label: "Review Claims",
             href: "/dashboard/review",
             icon: ClipboardCheck,
+          },
+        ]
+      : []),
+    ...(canAccessFinance
+      ? [
+          {
+            label: "Finance",
+            href: "/dashboard/finance",
+            icon: Wallet,
+          },
+        ]
+      : []),
+    ...(user.role === "SUPERADMIN"
+      ? [
+          {
+            label: "Administration",
+            href: "/dashboard/admin",
+            icon: ShieldCheck,
           },
         ]
       : []),

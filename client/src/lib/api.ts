@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { AuditLog, Claim, Department, PolicyRule, PayoutBatch } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -72,6 +73,26 @@ export const claimsAPI = {
 export const usersAPI = {
   getManagers: () => api.get("/users/managers"),
   getHODs: () => api.get("/users/hods"),
+};
+
+export const financeAPI = {
+  getApprovedClaims: () => api.get<{ claims: Claim[] }>("/finance/approved-claims"),
+  executeBatch: (claimIds: string[]) =>
+    api.post<{ payoutBatch: PayoutBatch }>("/finance/batches/execute", { claimIds }),
+};
+
+export const adminAPI = {
+  getDepartments: () => api.get<{ departments: Department[] }>("/admin/departments"),
+  createDepartment: (data: { name: string; code: string; budget: number }) =>
+    api.post<{ department: Department }>("/admin/departments", data),
+  getPolicyRules: () => api.get<{ policyRules: PolicyRule[] }>("/admin/policies"),
+  upsertPolicyRule: (data: {
+    category: string;
+    maxLimit: number;
+    requireReceipt?: boolean;
+    requireGstin?: boolean;
+  }) => api.post<{ policyRule: PolicyRule }>("/admin/policies", data),
+  getAuditLogs: () => api.get<{ auditLogs: AuditLog[] }>("/admin/audit-logs"),
 };
 
 export default api;

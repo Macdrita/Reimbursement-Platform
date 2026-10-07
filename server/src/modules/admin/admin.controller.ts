@@ -19,6 +19,45 @@ const sendValidationError = (res: Response, error: { flatten: () => unknown }) =
 const isPrismaErrorCode = (error: unknown, code: string): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === code;
 
+export const getDepartments = async (
+  _req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const departments = await adminService.getDepartments();
+    res.status(200).json({ departments });
+  } catch (error) {
+    console.error("Get Departments Error:", error);
+    res.status(500).json({ message: "Unable to fetch departments." });
+  }
+};
+
+export const getPolicyRules = async (
+  _req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const policyRules = await adminService.getPolicyRules();
+    res.status(200).json({ policyRules });
+  } catch (error) {
+    console.error("Get Policy Rules Error:", error);
+    res.status(500).json({ message: "Unable to fetch policy rules." });
+  }
+};
+
+export const getAuditLogs = async (
+  _req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const auditLogs = await adminService.getAuditLogs();
+    res.status(200).json({ auditLogs });
+  } catch (error) {
+    console.error("Get Audit Logs Error:", error);
+    res.status(500).json({ message: "Unable to fetch audit logs." });
+  }
+};
+
 export const createDepartment = async (
   req: AuthRequest,
   res: Response

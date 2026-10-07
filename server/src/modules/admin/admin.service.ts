@@ -6,6 +6,12 @@ import {
   UpsertPolicyRuleInput,
 } from "./admin.schemas";
 
+export const getDepartments = () => adminRepository.listDepartments();
+
+export const getPolicyRules = () => adminRepository.listPolicyRules();
+
+export const getAuditLogs = () => adminRepository.listAuditLogs();
+
 export const createDepartment = async (
   data: CreateDepartmentInput,
   actorId: string,
