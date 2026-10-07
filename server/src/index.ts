@@ -7,6 +7,7 @@ import authRoutes from "./routes/authRoutes";
 import claimRoutes from "./routes/claimRoutes";
 import userRoutes from "./routes/userRoutes";
 import financeRoutes from "./modules/finance/finance.routes";
+import adminRoutes from "./modules/admin/admin.routes";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/claims", claimRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/finance", financeRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", message: "Reimbursement Platform API is running" });
