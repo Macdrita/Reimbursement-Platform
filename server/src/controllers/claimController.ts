@@ -2,6 +2,7 @@ import { Response } from "express";
 import { prisma } from "../prisma";
 import { AuthRequest } from "../middlewares/auth";
 import { ClaimStatus } from "@prisma/client";
+import { logAction } from "../services/audit.service";
 
 export const createClaim = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -101,7 +102,7 @@ export const getSubordinateClaims = async (req: AuthRequest, res: Response): Pro
           managerId: req.user.id,
         },
       };
-    } else if (["SUPERADMIN", "FINANCE"].includes(req.user.role)) {
+    } else if (["SUPERADMIN", "FINANCE", "FINANCE_ADMIN"].includes(req.user.role)) {
       whereCondition = {};
     } else {
       res.status(403).json({ message: "Forbidden. Invalid role for reviewing claims." });
@@ -162,7 +163,7 @@ export const redirectClaim = async (req: AuthRequest, res: Response): Promise<vo
 
     // Verify manager relationship or admin permissions
     const isDirectManager = claim.employee.managerId === req.user.id;
-    const isAdmin = ["SUPERADMIN", "FINANCE"].includes(req.user.role);
+    const isAdmin = ["SUPERADMIN", "FINANCE", "FINANCE_ADMIN"].includes(req.user.role);
 
     if (!isDirectManager && !isAdmin) {
       res.status(403).json({ message: "Forbidden. You can only redirect claims of your direct subordinates." });
@@ -255,7 +256,7 @@ export const reviewClaim = async (req: AuthRequest, res: Response): Promise<void
     const isDirectManager = claim.employee.managerId === req.user.id;
     const isRedirectedToUser = claim.isRedirected && claim.redirectedToId === req.user.id;
     const isHodForRedirected = req.user.role === "HOD" && (claim.isRedirected || claim.employee.manager?.managerId === req.user.id);
-    const isAdmin = ["SUPERADMIN", "FINANCE"].includes(req.user.role);
+    const isAdmin = ["SUPERADMIN", "FINANCE", "FINANCE_ADMIN"].includes(req.user.role);
 
     if (!isDirectManager && !isRedirectedToUser && !isHodForRedirected && !isAdmin) {
       res.status(403).json({ message: "Forbidden. You are not authorized to review this claim." });
@@ -281,6 +282,13 @@ export const reviewClaim = async (req: AuthRequest, res: Response): Promise<void
         },
       },
     });
+
+    logAction(
+      req.user.id,
+      `CLAIM_${updatedClaim.status}`,
+      { claimId: updatedClaim.id },
+      req.ip
+    );
 
     res.status(200).json({
       message: `Claim successfully ${status.toLowerCase()}`,

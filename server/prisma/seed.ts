@@ -7,10 +7,33 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   // 1. Clean up existing data (Optional: prevents duplicate key errors)
+  await prisma.user.updateMany({ data: { managerId: null } });
   await prisma.claim.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.payoutBatch.deleteMany();
+  await prisma.department.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.policyRule.deleteMany();
 
   const hashedPassword = await bcrypt.hash('password123', 10);
+
+  const superadmin = await prisma.user.create({
+    data: {
+      name: 'Platform Superadmin',
+      email: 'superadmin@example.com',
+      password: hashedPassword,
+      role: Role.SUPERADMIN,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      name: 'Finance Admin',
+      email: 'finance.admin@example.com',
+      password: hashedPassword,
+      role: Role.FINANCE_ADMIN,
+    },
+  });
 
   const manager1 = await prisma.user.create({
     data: {
@@ -68,6 +91,39 @@ async function main() {
     },
   })
 
+  await prisma.department.createMany({
+    data: [
+      {
+        name: 'Engineering',
+        code: 'ENG',
+        budget: 500000,
+        hodId: hod1.id,
+      },
+      {
+        name: 'Sales',
+        code: 'SALES',
+        budget: 300000,
+        hodId: hod2.id,
+      },
+    ],
+  });
+
+  await prisma.policyRule.createMany({
+    data: [
+      {
+        category: 'Travel',
+        maxLimit: 50000,
+        requireReceipt: true,
+        requireGstin: false,
+      },
+      {
+        category: 'Meals',
+        maxLimit: 10000,
+        requireReceipt: true,
+        requireGstin: true,
+      },
+    ],
+  });
 
   await prisma.claim.createMany({
     data: [
@@ -104,6 +160,7 @@ async function main() {
     ],
   });
 
+  console.log(`Seeded superadmin ${superadmin.email}`);
   console.log('Database seeded successfully!');
 }
 
