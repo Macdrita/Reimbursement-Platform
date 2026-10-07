@@ -18,6 +18,13 @@ enum Role {
   SUPERADMIN
 }
 
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  BLACKLISTED
+}
+
 enum PayoutBatchStatus {
   DRAFT
   PROCESSING
@@ -37,7 +44,7 @@ model Department {
 
 model PolicyRule {
   id             String  @id @default(uuid())
-  category       String
+  category       String  @unique
   maxLimit       Float
   requireReceipt Boolean @default(false)
   requireGstin   Boolean @default(false)
@@ -75,6 +82,7 @@ model User {
   password  String
   name      String
   role      Role     @default(EMPLOYEE)
+  registrationStatus RegistrationStatus @default(APPROVED)
   
   // Hierarchical approval relationship (Self-referencing manager relation)
   managerId String?

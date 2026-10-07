@@ -20,8 +20,6 @@ interface AuthContextType {
     name: string;
     email: string;
     password: string;
-    role: string;
-    managerId?: string;
   }) => Promise<void>;
   logout: () => void;
 }
@@ -105,15 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string;
     email: string;
     password: string;
-    role: string;
-    managerId?: string;
   }) => {
-    const res = await authAPI.register(data);
-    const { token: newToken, user: newUser } = res.data;
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem("token", newToken);
-    localStorage.setItem("user", JSON.stringify(newUser));
+    await authAPI.register(data);
   };
 
   const logout = () => {

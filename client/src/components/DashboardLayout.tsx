@@ -64,11 +64,15 @@ export default function DashboardLayout({
       href: "/dashboard/claims",
       icon: FileText,
     },
-    {
-      label: "Submit Claim",
-      href: "/dashboard/claims/new",
-      icon: Receipt,
-    },
+    ...(!["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role)
+      ? [
+          {
+            label: "Submit Claim",
+            href: "/dashboard/claims/new",
+            icon: Receipt,
+          },
+        ]
+      : []),
     ...(isManager
       ? [
           {

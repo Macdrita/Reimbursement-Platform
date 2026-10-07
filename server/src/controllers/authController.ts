@@ -3,11 +3,12 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../prisma";
 import { AuthRequest } from "../middlewares/auth";
-import { Role } from "@prisma/client";
+import { RegistrationStatus, Role } from "@prisma/client";
+import { logAction } from "../services/audit.service";
 
 export const register = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { email, password, name, role, managerId } = req.body;
+    const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
       res.status(400).json({ message: "Name, email, and password are required." });
@@ -21,36 +22,28 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userRole: Role = role && Object.values(Role).includes(role) ? role : Role.EMPLOYEE;
-
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        role: userRole,
-        managerId: managerId || null,
+        role: Role.EMPLOYEE,
+        registrationStatus: RegistrationStatus.PENDING,
       },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
+        registrationStatus: true,
         managerId: true,
         createdAt: true,
       },
     });
 
-    const secret = process.env.JWT_SECRET || "default_jwt_secret";
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      secret,
-      { expiresIn: "7d" }
-    );
-
-    res.status(201).json({
-      message: "User registered successfully",
-      token,
+    logAction(user.id, "REGISTRATION_SUBMITTED", { email: user.email }, req.ip);
+    res.status(202).json({
+      message: "Registration submitted for Superadmin approval.",
       user,
     });
   } catch (error) {
@@ -88,6 +81,19 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
       return;
     }
 
+    if (user.registrationStatus !== RegistrationStatus.APPROVED) {
+      const message =
+        user.registrationStatus === RegistrationStatus.PENDING
+          ? "Your registration is awaiting Superadmin approval."
+          : user.registrationStatus === RegistrationStatus.BLACKLISTED
+            ? "This account has been blacklisted."
+            : "This registration was rejected.";
+      res.status(403).json({ message, registrationStatus: user.registrationStatus });
+      return;
+    }
+
+    logAction(user.id, "LOGIN_SUCCESS", {}, req.ip);
+
     const secret = process.env.JWT_SECRET || "default_jwt_secret";
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
@@ -122,6 +128,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
         email: true,
         name: true,
         role: true,
+        registrationStatus: true,
         managerId: true,
         manager: {
           select: { id: true, name: true, email: true },
@@ -132,6 +139,11 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 
     if (!user) {
       res.status(404).json({ message: "User not found." });
+      return;
+    }
+
+    if (user.registrationStatus !== RegistrationStatus.APPROVED) {
+      res.status(403).json({ message: "This account is not active." });
       return;
     }
 

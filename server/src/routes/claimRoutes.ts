@@ -13,7 +13,13 @@ import { upload } from "../middlewares/upload";
 const router = Router();
 
 // Employee routes
-router.post("/", authenticate, upload.single("receipt"), createClaim);
+router.post(
+  "/",
+  authenticate,
+  requireRole("EMPLOYEE", "MANAGER", "HOD", "FINANCE"),
+  upload.single("receipt"),
+  createClaim
+);
 router.get("/my-claims", authenticate, getMyClaims);
 
 // Manager / HOD review routes

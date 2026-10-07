@@ -3,6 +3,8 @@ import { Response } from "express";
 import { AuthRequest } from "../../middlewares/auth";
 import {
   createDepartmentSchema,
+  registrationStatusSchema,
+  updateDepartmentSchema,
   updateUserRoleSchema,
   upsertPolicyRuleSchema,
   userIdParamsSchema,
@@ -58,6 +60,19 @@ export const getAuditLogs = async (
   }
 };
 
+export const getPendingRegistrations = async (
+  _req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const registrations = await adminService.getPendingRegistrations();
+    res.status(200).json({ registrations });
+  } catch (error) {
+    console.error("Get Pending Registrations Error:", error);
+    res.status(500).json({ message: "Unable to fetch pending registrations." });
+  }
+};
+
 export const createDepartment = async (
   req: AuthRequest,
   res: Response
@@ -88,6 +103,49 @@ export const createDepartment = async (
     }
     console.error("Create Department Error:", error);
     res.status(500).json({ message: "Unable to create department." });
+  }
+};
+
+export const updateDepartment = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  const actorId = req.user?.id;
+  if (!actorId) {
+    res.status(401).json({ message: "Unauthorized." });
+    return;
+  }
+
+  const params = userIdParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    sendValidationError(res, params.error);
+    return;
+  }
+  const input = updateDepartmentSchema.safeParse(req.body);
+  if (!input.success) {
+    sendValidationError(res, input.error);
+    return;
+  }
+
+  try {
+    const department = await adminService.updateDepartment(
+      params.data.id,
+      input.data,
+      actorId,
+      req.ip
+    );
+    res.status(200).json({ department });
+  } catch (error) {
+    if (isPrismaErrorCode(error, "P2002")) {
+      res.status(409).json({ message: "A department with that code already exists." });
+      return;
+    }
+    if (isPrismaErrorCode(error, "P2025")) {
+      res.status(404).json({ message: "Department not found." });
+      return;
+    }
+    console.error("Update Department Error:", error);
+    res.status(500).json({ message: "Unable to update department." });
   }
 };
 
@@ -157,5 +215,43 @@ export const updateUserRole = async (
     }
     console.error("Update User Role Error:", error);
     res.status(500).json({ message: "Unable to update user role." });
+  }
+};
+
+export const updateRegistrationStatus = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  const actorId = req.user?.id;
+  if (!actorId) {
+    res.status(401).json({ message: "Unauthorized." });
+    return;
+  }
+  const params = userIdParamsSchema.safeParse(req.params);
+  if (!params.success) {
+    sendValidationError(res, params.error);
+    return;
+  }
+  const input = registrationStatusSchema.safeParse(req.body);
+  if (!input.success) {
+    sendValidationError(res, input.error);
+    return;
+  }
+
+  try {
+    const user = await adminService.updateRegistrationStatus(
+      params.data.id,
+      input.data,
+      actorId,
+      req.ip
+    );
+    res.status(200).json({ user });
+  } catch (error) {
+    if (error instanceof adminService.RegistrationStatusError) {
+      res.status(error.userExists ? 409 : 404).json({ message: error.message });
+      return;
+    }
+    console.error("Update Registration Status Error:", error);
+    res.status(500).json({ message: "Unable to update registration status." });
   }
 };

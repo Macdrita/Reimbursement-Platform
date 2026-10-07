@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { claimsAPI } from "@/lib/api";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -29,8 +29,15 @@ export default function NewClaimPage() {
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const canSubmitClaim = Boolean(user && !["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role));
 
-  if (authLoading || !user) return null;
+  useEffect(() => {
+    if (!authLoading && user && !canSubmitClaim) {
+      router.replace("/dashboard");
+    }
+  }, [authLoading, canSubmitClaim, router, user]);
+
+  if (authLoading || !user || !canSubmitClaim) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];

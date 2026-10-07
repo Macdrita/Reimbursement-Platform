@@ -8,6 +8,7 @@ import {
   Building2,
   ClipboardList,
   LoaderCircle,
+  Pencil,
   Plus,
   ScrollText,
   ShieldCheck,
@@ -49,8 +50,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
-import { adminAPI } from "@/lib/api";
-import { AuditLog, Department, PolicyRule } from "@/lib/types";
+import { adminAPI, usersAPI } from "@/lib/api";
+import { AuditLog, Department, PolicyRule, RegistrationRequest, RegistrationStatus } from "@/lib/types";
 
 const departmentSchema = z.object({
   name: z.string().trim().min(1, "Department name is required.").max(100),
@@ -61,8 +62,8 @@ const departmentSchema = z.object({
     .min(1, "Budget is required.")
     .transform(Number)
     .pipe(z.number().finite().nonnegative("Budget must be zero or greater.")),
+  hodId: z.string().uuid().nullable(),
 });
-
 const policySchema = z.object({
   category: z.string().trim().min(1, "Category is required.").max(100),
   maxLimit: z
@@ -100,6 +101,7 @@ export default function AdminPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [departmentDialogOpen, setDepartmentDialogOpen] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<PolicyRule | null>(null);
   const [departmentError, setDepartmentError] = useState("");
@@ -130,6 +132,16 @@ export default function AdminPage() {
     queryFn: async () => (await adminAPI.getAuditLogs()).data.auditLogs,
     enabled: isSuperadmin,
   });
+  const registrationsQuery = useQuery({
+    queryKey: ["admin", "registrations", "pending"],
+    queryFn: async () => (await adminAPI.getPendingRegistrations()).data.registrations,
+    enabled: isSuperadmin,
+  });
+  const hodsQuery = useQuery({
+    queryKey: ["admin", "department-hods"],
+    queryFn: async () => (await usersAPI.getHODs()).data.hods as { id: string; name: string }[],
+    enabled: isSuperadmin && departmentDialogOpen,
+  });
 
   const createDepartment = useMutation({
     mutationFn: adminAPI.createDepartment,
@@ -143,18 +155,87 @@ export default function AdminPage() {
     },
     onError: (error: unknown) => setDepartmentError(getErrorMessage(error)),
   });
-  const savePolicy = useMutation({
-    mutationFn: adminAPI.upsertPolicyRule,
+  const editDepartment = useMutation({
+    mutationFn: ({ id, data }: {
+      id: string;
+      data: { name: string; code: string; budget: number; hodId: string | null };
+    }) => adminAPI.updateDepartment(id, data),
     onSuccess: async () => {
-      setPolicyDialogOpen(false);
-      setEditingPolicy(null);
-      setPolicyError("");
+      setDepartmentDialogOpen(false);
+      setEditingDepartment(null);
+      setDepartmentError("");
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["admin", "policies"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "departments"] }),
         queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] }),
       ]);
     },
-    onError: (error: unknown) => setPolicyError(getErrorMessage(error)),
+    onError: (error: unknown) => setDepartmentError(getErrorMessage(error)),
+  });
+  const savePolicy = useMutation({
+    mutationFn: adminAPI.upsertPolicyRule,
+    onMutate: (input) => {
+      const previousPolicies = queryClient.getQueryData<PolicyRule[]>([
+        "admin",
+        "policies",
+      ]);
+      const previousEditingPolicy = editingPolicy;
+      const existing = previousPolicies?.find(
+        (policy) => policy.category === input.category
+      );
+      const optimisticPolicy: PolicyRule = {
+        id: existing?.id ?? `optimistic-${input.category}`,
+        category: input.category,
+        maxLimit: input.maxLimit,
+        requireReceipt: input.requireReceipt ?? existing?.requireReceipt ?? false,
+        requireGstin: input.requireGstin ?? existing?.requireGstin ?? false,
+      };
+      queryClient.setQueryData<PolicyRule[]>(
+        ["admin", "policies"],
+        (current) =>
+          (current ?? [])
+            .filter((policy) => policy.category !== input.category)
+            .concat(optimisticPolicy)
+            .sort((a, b) => a.category.localeCompare(b.category))
+      );
+      setPolicyDialogOpen(false);
+      setEditingPolicy(null);
+      return { previousPolicies, previousEditingPolicy };
+    },
+    onSuccess: ({ data }) => {
+      setPolicyDialogOpen(false);
+      setEditingPolicy(null);
+      setPolicyError("");
+      queryClient.setQueryData<PolicyRule[]>(["admin", "policies"], (current) =>
+        current
+          ? current.some((policy) => policy.id === data.policyRule.id || policy.category === data.policyRule.category)
+            ? current.map((policy) => policy.id === data.policyRule.id || policy.category === data.policyRule.category ? data.policyRule : policy)
+            : [...current, data.policyRule].sort((a, b) => a.category.localeCompare(b.category))
+          : [data.policyRule]
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin", "policies"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] });
+    },
+    onError: (error, _input, context) => {
+      if (context?.previousPolicies !== undefined) {
+        queryClient.setQueryData(["admin", "policies"], context.previousPolicies);
+      } else {
+        queryClient.removeQueries({
+          queryKey: ["admin", "policies"],
+          exact: true,
+        });
+      }
+      setEditingPolicy(context?.previousEditingPolicy ?? null);
+      setPolicyDialogOpen(true);
+      setPolicyError(getErrorMessage(error));
+    },
+  });
+  const reviewRegistration = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Exclude<RegistrationStatus, "PENDING"> }) =>
+      adminAPI.updateRegistrationStatus(id, status),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "registrations", "pending"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] });
+    },
   });
 
   const handleDepartmentSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -165,12 +246,19 @@ export default function AdminPage() {
       name: formData.get("name"),
       code: formData.get("code"),
       budget: formData.get("budget"),
+      hodId: formData.has("hodId")
+        ? (formData.get("hodId") as string) || null
+        : editingDepartment?.hodId ?? null,
     });
     if (!parsed.success) {
       setDepartmentError(parsed.error.issues[0]?.message ?? "Check the department details.");
       return;
     }
-    createDepartment.mutate(parsed.data);
+    if (editingDepartment) {
+      editDepartment.mutate({ id: editingDepartment.id, data: parsed.data });
+    } else {
+      createDepartment.mutate(parsed.data);
+    }
   };
 
   const handlePolicySubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -196,6 +284,12 @@ export default function AdminPage() {
     setPolicyDialogOpen(true);
   };
 
+  const openDepartmentDialog = (department?: Department) => {
+    setEditingDepartment(department ?? null);
+    setDepartmentError("");
+    setDepartmentDialogOpen(true);
+  };
+
   if (authLoading || !isSuperadmin) return null;
 
   return (
@@ -216,6 +310,11 @@ export default function AdminPage() {
             Superadmin access
           </Badge>
         </header>
+        {savePolicy.isPending && (
+          <p role="status" className="rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm text-violet-200">
+            Saving policy update…
+          </p>
+        )}
 
         <Tabs defaultValue="departments" className="gap-5">
           <TabsList className="h-auto w-full justify-start overflow-x-auto border border-white/[0.06] bg-[#12121e] p-1 sm:w-fit">
@@ -227,6 +326,12 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2 px-4 py-2 text-white/55 data-active:text-white">
               <ScrollText className="size-4" /> Audit Logs
+            </TabsTrigger>
+            <TabsTrigger value="registrations" className="gap-2 px-4 py-2 text-white/55 data-active:text-white">
+              <ShieldCheck className="size-4" /> Registration Requests
+              {registrationsQuery.data && registrationsQuery.data.length > 0 && (
+                <span className="rounded-full bg-rose-500/20 px-1.5 text-xs text-rose-200">{registrationsQuery.data.length}</span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -240,10 +345,7 @@ export default function AdminPage() {
                   </CardDescription>
                 </div>
                 <Button
-                  onClick={() => {
-                    setDepartmentError("");
-                    setDepartmentDialogOpen(true);
-                  }}
+                  onClick={() => openDepartmentDialog()}
                   className="rounded-xl bg-violet-600 text-white hover:bg-violet-500"
                 >
                   <Plus /> Add department
@@ -258,7 +360,8 @@ export default function AdminPage() {
                           <TableHead className="pl-5 text-xs uppercase tracking-wide text-white/45">Department</TableHead>
                           <TableHead className="text-xs uppercase tracking-wide text-white/45">Code</TableHead>
                           <TableHead className="text-xs uppercase tracking-wide text-white/45">Head of department</TableHead>
-                          <TableHead className="pr-5 text-right text-xs uppercase tracking-wide text-white/45">Budget cap</TableHead>
+                          <TableHead className="text-right text-xs uppercase tracking-wide text-white/45">Budget cap</TableHead>
+                          <TableHead className="pr-5 text-right text-xs uppercase tracking-wide text-white/45">Edit</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -267,7 +370,12 @@ export default function AdminPage() {
                             <TableCell className="pl-5 font-medium text-white">{department.name}</TableCell>
                             <TableCell><Badge variant="outline" className="border-white/10 text-white/60">{department.code}</Badge></TableCell>
                             <TableCell className="text-white/55">{department.hod?.name ?? "Not assigned"}</TableCell>
-                            <TableCell className="pr-5 text-right font-medium text-white">{formatCurrency(department.budget)}</TableCell>
+                            <TableCell className="text-right font-medium text-white">{formatCurrency(department.budget)}</TableCell>
+                            <TableCell className="pr-5 text-right">
+                              <Button variant="outline" size="sm" onClick={() => openDepartmentDialog(department)} className="border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.08] hover:text-white">
+                                <Pencil /> Edit
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -338,7 +446,7 @@ export default function AdminPage() {
                   <ClipboardList className="size-5 text-violet-300" /> Recent audit activity
                 </CardTitle>
                 <CardDescription className="text-white/40">
-                  The latest 100 administrative and financial events.
+                  All recorded administrative and financial activity across the organization.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -375,35 +483,101 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="registrations">
+            <Card className="overflow-hidden border-white/[0.07] bg-[#12121e]/70">
+              <CardHeader className="border-b border-white/[0.06]">
+                <CardTitle className="text-lg text-white">Pending registrations</CardTitle>
+                <CardDescription className="mt-1 text-white/40">
+                  Approve accounts, reject requests, or permanently blacklist registrations.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <DataState
+                  loading={registrationsQuery.isLoading}
+                  error={registrationsQuery.isError ? getErrorMessage(registrationsQuery.error) : ""}
+                  onRetry={() => void registrationsQuery.refetch()}
+                  empty={!registrationsQuery.isLoading && !registrationsQuery.isError && registrationsQuery.data?.length === 0}
+                >
+                  {registrationsQuery.data && registrationsQuery.data.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/[0.06] hover:bg-transparent">
+                          <TableHead className="pl-5 text-xs uppercase tracking-wide text-white/45">Applicant</TableHead>
+                          <TableHead className="text-xs uppercase tracking-wide text-white/45">Requested role</TableHead>
+                          <TableHead className="text-xs uppercase tracking-wide text-white/45">Submitted</TableHead>
+                          <TableHead className="pr-5 text-right text-xs uppercase tracking-wide text-white/45">Decision</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {registrationsQuery.data.map((registration: RegistrationRequest) => (
+                          <TableRow key={registration.id} className="border-white/[0.05]">
+                            <TableCell className="pl-5">
+                              <p className="font-medium text-white">{registration.name}</p>
+                              <p className="mt-1 text-xs text-white/40">{registration.email}</p>
+                            </TableCell>
+                            <TableCell><Badge variant="outline" className="border-white/10 text-white/65">Employee</Badge></TableCell>
+                            <TableCell className="text-sm text-white/50">{formatDate(registration.createdAt)}</TableCell>
+                            <TableCell className="pr-5">
+                              <div className="flex justify-end gap-2">
+                                <Button size="sm" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "APPROVED" })} className="bg-emerald-600 text-white hover:bg-emerald-500">Approve</Button>
+                                <Button size="sm" variant="outline" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "REJECTED" })} className="border-white/10 text-white/65">Reject</Button>
+                                <Button size="sm" variant="destructive" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "BLACKLISTED" })}>Blacklist</Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </DataState>
+                {reviewRegistration.isError && (
+                  <p role="alert" className="border-t border-red-500/10 px-5 py-3 text-sm text-red-300">
+                    {getErrorMessage(reviewRegistration.error)}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         <Dialog open={departmentDialogOpen} onOpenChange={setDepartmentDialogOpen}>
           <DialogContent className="border-white/10 bg-[#151522] text-white sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="text-white">Add a department</DialogTitle>
+              <DialogTitle className="text-white">{editingDepartment ? "Edit department" : "Add a department"}</DialogTitle>
               <DialogDescription className="text-white/45">
-                Create a department and set its budget cap.
+                {editingDepartment ? "Update the department details and budget cap." : "Create a department and set its budget cap."}
               </DialogDescription>
             </DialogHeader>
-            <Form key={departmentDialogOpen ? "department-open" : "department-closed"} onSubmit={handleDepartmentSubmit}>
+            <Form key={`${editingDepartment?.id ?? "new-department"}-${departmentDialogOpen ? "open" : "closed"}`} onSubmit={handleDepartmentSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="department-name" className="text-white/70">Department name</Label>
-                <Input id="department-name" name="name" placeholder="Engineering" required maxLength={100} className="h-10 border-white/10 bg-white/[0.04] text-white" />
+                <Input id="department-name" name="name" defaultValue={editingDepartment?.name ?? ""} placeholder="Engineering" required maxLength={100} className="h-10 border-white/10 bg-white/[0.04] text-white" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department-code" className="text-white/70">Department code</Label>
-                <Input id="department-code" name="code" placeholder="ENG" required maxLength={20} className="h-10 border-white/10 bg-white/[0.04] text-white" />
+                <Input id="department-code" name="code" defaultValue={editingDepartment?.code ?? ""} placeholder="ENG" required maxLength={20} className="h-10 border-white/10 bg-white/[0.04] text-white" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department-budget" className="text-white/70">Budget cap (₹)</Label>
-                <Input id="department-budget" name="budget" type="number" min="0" step="0.01" placeholder="500000" required className="h-10 border-white/10 bg-white/[0.04] text-white" />
+                <Input id="department-budget" name="budget" type="number" min="0" step="0.01" defaultValue={editingDepartment?.budget ?? ""} placeholder="500000" required className="h-10 border-white/10 bg-white/[0.04] text-white" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="department-hod" className="text-white/70">Department head</Label>
+                <select id="department-hod" name="hodId" defaultValue={editingDepartment?.hodId ?? ""} disabled={hodsQuery.isLoading || hodsQuery.isError} className="h-10 w-full rounded-lg border border-white/10 bg-[#171724] px-3 text-sm text-white disabled:opacity-50">
+                  <option value="">Unassigned</option>
+                  {hodsQuery.data?.map((hod) => (
+                    <option key={hod.id} value={hod.id}>{hod.name}</option>
+                  ))}
+                </select>
+                {hodsQuery.isError && <p className="text-xs text-amber-300">Could not load department heads; the existing assignment will be kept.</p>}
               </div>
               {departmentError && <p role="alert" className="text-sm text-red-300">{departmentError}</p>}
               <DialogFooter className="border-white/[0.06] bg-transparent p-0 pt-2">
                 <Button type="button" variant="outline" onClick={() => setDepartmentDialogOpen(false)} className="border-white/10 text-white/70">Cancel</Button>
-                <Button type="submit" disabled={createDepartment.isPending} className="bg-violet-600 text-white hover:bg-violet-500">
-                  {createDepartment.isPending && <LoaderCircle className="animate-spin" />}
-                  Create department
+                <Button type="submit" disabled={createDepartment.isPending || editDepartment.isPending} className="bg-violet-600 text-white hover:bg-violet-500">
+                  {(createDepartment.isPending || editDepartment.isPending) && <LoaderCircle className="animate-spin" />}
+                  {editingDepartment ? "Save changes" : "Create department"}
                 </Button>
               </DialogFooter>
             </Form>

@@ -1,12 +1,21 @@
 import { prisma } from "../../prisma";
 import {
   CreateDepartmentInput,
+  RegistrationStatusInput,
+  UpdateDepartmentInput,
   UpdateUserRoleInput,
   UpsertPolicyRuleInput,
 } from "./admin.schemas";
 
 export const createDepartment = (data: CreateDepartmentInput) =>
   prisma.department.create({ data });
+
+export const updateDepartment = (id: string, data: UpdateDepartmentInput) =>
+  prisma.department.update({
+    where: { id },
+    data,
+    include: { hod: { select: { id: true, name: true } } },
+  });
 
 export const listDepartments = () =>
   prisma.department.findMany({
@@ -20,33 +29,23 @@ export const listPolicyRules = () =>
 export const listAuditLogs = () =>
   prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
-    take: 100,
     include: { user: { select: { id: true, name: true, email: true } } },
   });
 
 export const upsertPolicyRule = (data: UpsertPolicyRuleInput) =>
-  prisma.$transaction(async (transaction) => {
-    const existing = await transaction.policyRule.findFirst({
-      where: { category: data.category },
-    });
-
-    if (existing) {
-      return transaction.policyRule.update({
-        where: { id: existing.id },
-        data: {
-          maxLimit: data.maxLimit,
-          ...(data.requireReceipt === undefined
-            ? {}
-            : { requireReceipt: data.requireReceipt }),
-          ...(data.requireGstin === undefined
-            ? {}
-            : { requireGstin: data.requireGstin }),
-        },
-      });
-    }
-
-    return transaction.policyRule.create({ data });
-  }, { maxWait: 10_000, timeout: 10_000 });
+  prisma.policyRule.upsert({
+    where: { category: data.category },
+    create: data,
+    update: {
+      maxLimit: data.maxLimit,
+      ...(data.requireReceipt === undefined
+        ? {}
+        : { requireReceipt: data.requireReceipt }),
+      ...(data.requireGstin === undefined
+        ? {}
+        : { requireGstin: data.requireGstin }),
+    },
+  });
 
 export const updateUserRole = (id: string, data: UpdateUserRoleInput) =>
   prisma.user.update({
@@ -54,3 +53,42 @@ export const updateUserRole = (id: string, data: UpdateUserRoleInput) =>
     data: { role: data.role },
     select: { id: true, email: true, name: true, role: true },
   });
+
+export const listPendingRegistrations = () =>
+  prisma.user.findMany({
+    where: { registrationStatus: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      managerId: true,
+      createdAt: true,
+      manager: { select: { id: true, name: true } },
+    },
+  });
+
+export const updateRegistrationStatus = async (
+  id: string,
+  data: RegistrationStatusInput
+) => {
+  const result = await prisma.user.updateMany({
+    where: { id, registrationStatus: "PENDING" },
+    data: { registrationStatus: data.status },
+  });
+  if (result.count === 0) {
+    return { user: null, exists: Boolean(await prisma.user.findUnique({ where: { id }, select: { id: true } })) };
+  }
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      registrationStatus: true,
+    },
+  });
+  return { user, exists: true };
+};

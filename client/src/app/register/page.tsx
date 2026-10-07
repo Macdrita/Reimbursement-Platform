@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,36 +13,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Receipt, Eye, EyeOff, Loader2 } from "lucide-react";
-import { usersAPI } from "@/lib/api";
-import { Manager } from "@/lib/types";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("EMPLOYEE");
-  const [managerId, setManagerId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [managers, setManagers] = useState<Manager[]>([]);
+  const [registrationSubmitted, setRegistrationSubmitted] = useState(false);
   const { register } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    usersAPI
-      .getManagers()
-      .then((res) => setManagers(res.data.managers))
-      .catch(() => {});
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,10 +35,8 @@ export default function RegisterPage() {
         name,
         email,
         password,
-        role,
-        managerId: managerId || undefined,
       });
-      router.push("/dashboard");
+      setRegistrationSubmitted(true);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(
@@ -69,6 +47,29 @@ export default function RegisterPage() {
       setIsLoading(false);
     }
   };
+
+  if (registrationSubmitted) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-white/[0.08] bg-[#12121e]/80 text-center">
+          <CardHeader>
+            <div className="mx-auto mb-2 flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10">
+              <Receipt className="size-7 text-emerald-300" />
+            </div>
+            <CardTitle className="text-xl text-white">Request submitted</CardTitle>
+            <CardDescription className="text-white/50">
+              A Superadmin must approve your registration before you can sign in.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/login" className="text-sm font-medium text-violet-300 hover:text-violet-200">
+              Return to sign in
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4 relative overflow-hidden">
@@ -164,70 +165,6 @@ export default function RegisterPage() {
                   </button>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role" className="text-white/70 text-sm">
-                  Role
-                </Label>
-                <Select value={role} onValueChange={(v) => v && setRole(v)}>
-                  <SelectTrigger className="bg-white/[0.04] border-white/[0.08] text-white h-11 [&>span]:text-white">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#16162a] border-white/10">
-                    <SelectItem
-                      value="EMPLOYEE"
-                      className="text-white focus:bg-violet-500/20 focus:text-white"
-                    >
-                      Employee
-                    </SelectItem>
-                    <SelectItem
-                      value="MANAGER"
-                      className="text-white focus:bg-violet-500/20 focus:text-white"
-                    >
-                      Manager
-                    </SelectItem>
-                    <SelectItem
-                      value="HOD"
-                      className="text-white focus:bg-violet-500/20 focus:text-white"
-                    >
-                      Head of Department (HOD)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {(role === "EMPLOYEE" || role === "MANAGER") && managers.length > 0 && (
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="manager"
-                    className="text-white/70 text-sm"
-                  >
-                    {role === "MANAGER" ? "Reporting HOD / Admin" : "Reporting Manager"}
-                  </Label>
-                  <Select value={managerId} onValueChange={(v) => setManagerId(v ?? "")}>
-                    <SelectTrigger className="bg-white/[0.04] border-white/[0.08] text-white h-11 [&>span]:text-white">
-                      <SelectValue placeholder={role === "MANAGER" ? "Select reporting HOD" : "Select your manager"} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#16162a] border-white/10">
-                      {managers
-                        .filter((m) =>
-                          role === "EMPLOYEE"
-                            ? m.role === "MANAGER"
-                            : m.role === "HOD" || m.role === "SUPERADMIN"
-                        )
-                        .map((m) => (
-                          <SelectItem
-                            key={m.id}
-                            value={m.name}
-                            className="text-white focus:bg-violet-500/20 focus:text-white"
-                          >
-                            {m.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               <Button
                 type="submit"

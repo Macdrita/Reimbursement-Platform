@@ -90,12 +90,14 @@ export default function MyClaimsPage() {
               Track all your reimbursement submissions
             </p>
           </div>
-          <button
-            onClick={() => router.push("/dashboard/claims/new")}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-500 hover:to-indigo-500 transition-all duration-200 shadow-lg shadow-violet-500/20 cursor-pointer"
-          >
-            + New Claim
-          </button>
+          {!["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role) && (
+            <button
+              onClick={() => router.push("/dashboard/claims/new")}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium hover:from-violet-500 hover:to-indigo-500 transition-all duration-200 shadow-lg shadow-violet-500/20 cursor-pointer"
+            >
+              + New Claim
+            </button>
+          )}
         </div>
 
         <Card className="bg-[#12121e]/60 backdrop-blur-sm border-white/[0.06]">

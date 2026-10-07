@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AuditLog, Claim, Department, PolicyRule, PayoutBatch } from "./types";
+import type { AuditLog, Claim, Department, PolicyRule, PayoutBatch, RegistrationRequest, RegistrationStatus, Role } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -37,8 +37,6 @@ export const authAPI = {
     name: string;
     email: string;
     password: string;
-    role: string;
-    managerId?: string;
   }) => api.post("/auth/register", data),
 
   login: (data: { email: string; password: string }) =>
@@ -83,8 +81,10 @@ export const financeAPI = {
 
 export const adminAPI = {
   getDepartments: () => api.get<{ departments: Department[] }>("/admin/departments"),
-  createDepartment: (data: { name: string; code: string; budget: number }) =>
+  createDepartment: (data: { name: string; code: string; budget: number; hodId?: string | null }) =>
     api.post<{ department: Department }>("/admin/departments", data),
+  updateDepartment: (id: string, data: { name: string; code: string; budget: number; hodId?: string | null }) =>
+    api.patch<{ department: Department }>(`/admin/departments/${id}`, data),
   getPolicyRules: () => api.get<{ policyRules: PolicyRule[] }>("/admin/policies"),
   upsertPolicyRule: (data: {
     category: string;
@@ -93,6 +93,12 @@ export const adminAPI = {
     requireGstin?: boolean;
   }) => api.post<{ policyRule: PolicyRule }>("/admin/policies", data),
   getAuditLogs: () => api.get<{ auditLogs: AuditLog[] }>("/admin/audit-logs"),
+  getPendingRegistrations: () =>
+    api.get<{ registrations: RegistrationRequest[] }>("/admin/registrations/pending"),
+  updateRegistrationStatus: (
+    id: string,
+    status: Exclude<RegistrationStatus, "PENDING">
+  ) => api.patch<{ user: { id: string; role: Role; registrationStatus: RegistrationStatus } }>(`/admin/registrations/${id}/status`, { status }),
 };
 
 export default api;

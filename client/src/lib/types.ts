@@ -7,12 +7,14 @@ export type Role =
   | "SUPERADMIN";
 
 export type ClaimStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type RegistrationStatus = "PENDING" | "APPROVED" | "REJECTED" | "BLACKLISTED";
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: Role;
+  registrationStatus: RegistrationStatus;
   managerId: string | null;
   manager?: {
     id: string;
@@ -72,6 +74,16 @@ export interface Department {
   budget: number;
   hodId: string | null;
   hod?: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface RegistrationRequest {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  managerId: string | null;
+  manager?: { id: string; name: string } | null;
   createdAt: string;
 }
 

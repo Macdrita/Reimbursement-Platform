@@ -10,8 +10,27 @@ export const createDepartmentSchema = z
       .max(20)
       .transform((code) => code.toUpperCase()),
     budget: z.number().finite().nonnegative(),
+    hodId: z.string().uuid().nullable().optional(),
   })
   .strict();
+
+export const updateDepartmentSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    code: z
+      .string()
+      .trim()
+      .min(1)
+      .max(20)
+      .transform((code) => code.toUpperCase())
+      .optional(),
+    budget: z.number().finite().nonnegative().optional(),
+    hodId: z.string().uuid().nullable().optional(),
+  })
+  .strict()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "At least one department field must be provided.",
+  });
 
 export const upsertPolicyRuleSchema = z
   .object({
@@ -28,6 +47,7 @@ export const updateUserRoleSchema = z
       "EMPLOYEE",
       "MANAGER",
       "HOD",
+      "FINANCE",
       "FINANCE_ADMIN",
       "SUPERADMIN",
     ]),
@@ -40,6 +60,14 @@ export const userIdParamsSchema = z
   })
   .strict();
 
+export const registrationStatusSchema = z
+  .object({
+    status: z.enum(["APPROVED", "REJECTED", "BLACKLISTED"]),
+  })
+  .strict();
+
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
+export type UpdateDepartmentInput = z.infer<typeof updateDepartmentSchema>;
 export type UpsertPolicyRuleInput = z.infer<typeof upsertPolicyRuleSchema>;
 export type UpdateUserRoleInput = z.infer<typeof updateUserRoleSchema>;
+export type RegistrationStatusInput = z.infer<typeof registrationStatusSchema>;

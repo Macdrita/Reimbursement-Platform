@@ -11,6 +11,11 @@ export const createClaim = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    if (["FINANCE_ADMIN", "SUPERADMIN"].includes(req.user.role)) {
+      res.status(403).json({ message: "This role cannot submit expense claims." });
+      return;
+    }
+
     const { title, description, amount } = req.body;
 
     if (!title || !amount) {
@@ -40,6 +45,13 @@ export const createClaim = async (req: AuthRequest, res: Response): Promise<void
         },
       },
     });
+
+    logAction(
+      req.user.id,
+      "CLAIM_SUBMITTED",
+      { claimId: claim.id, amount: claim.amount },
+      req.ip
+    );
 
     res.status(201).json({
       message: "Claim submitted successfully",
@@ -203,6 +215,13 @@ export const redirectClaim = async (req: AuthRequest, res: Response): Promise<vo
         },
       },
     });
+
+    logAction(
+      req.user.id,
+      "CLAIM_REDIRECTED",
+      { claimId: updatedClaim.id, redirectedToId: updatedClaim.redirectedToId },
+      req.ip
+    );
 
     res.status(200).json({
       message: "Claim successfully redirected to HOD",
