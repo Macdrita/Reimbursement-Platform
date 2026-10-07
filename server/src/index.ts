@@ -6,6 +6,7 @@ import path from "path";
 import authRoutes from "./routes/authRoutes";
 import claimRoutes from "./routes/claimRoutes";
 import userRoutes from "./routes/userRoutes";
+import financeRoutes from "./modules/finance/finance.routes";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/claims", claimRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/finance", financeRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", message: "Reimbursement Platform API is running" });
