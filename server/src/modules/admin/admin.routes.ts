@@ -6,7 +6,7 @@ import {
   createDepartment,
   getAuditLogs,
   getDepartments,
-  getPendingRegistrations,
+  getRegistrations,
   getPolicyRules,
   updateDepartment,
   updateRegistrationStatus,
@@ -23,7 +23,7 @@ router.patch("/departments/:id", updateDepartment);
 router.get("/policies", getPolicyRules);
 router.post("/policies", upsertPolicyRule);
 router.get("/audit-logs", getAuditLogs);
-router.get("/registrations/pending", getPendingRegistrations);
+router.get("/registrations", getRegistrations);
 router.patch("/registrations/:id/status", updateRegistrationStatus);
 router.patch("/users/:id/role", updateUserRole);
 

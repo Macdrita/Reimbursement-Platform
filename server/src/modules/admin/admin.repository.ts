@@ -54,15 +54,16 @@ export const updateUserRole = (id: string, data: UpdateUserRoleInput) =>
     select: { id: true, email: true, name: true, role: true },
   });
 
-export const listPendingRegistrations = () =>
+export const listRegistrations = () =>
   prisma.user.findMany({
-    where: { registrationStatus: "PENDING" },
-    orderBy: { createdAt: "asc" },
+    where: { role: { not: "SUPERADMIN" } },
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       email: true,
       name: true,
       role: true,
+      registrationStatus: true,
       managerId: true,
       createdAt: true,
       manager: { select: { id: true, name: true } },
@@ -74,7 +75,15 @@ export const updateRegistrationStatus = async (
   data: RegistrationStatusInput
 ) => {
   const result = await prisma.user.updateMany({
-    where: { id, registrationStatus: "PENDING" },
+    where: {
+      id,
+      registrationStatus:
+        data.status === "BLACKLISTED"
+          ? { in: ["PENDING", "APPROVED"] }
+          : data.status === "APPROVED"
+            ? { in: ["PENDING", "BLACKLISTED"] }
+            : "PENDING",
+    },
     data: { registrationStatus: data.status },
   });
   if (result.count === 0) {

@@ -60,16 +60,16 @@ export const getAuditLogs = async (
   }
 };
 
-export const getPendingRegistrations = async (
+export const getRegistrations = async (
   _req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
-    const registrations = await adminService.getPendingRegistrations();
+    const registrations = await adminService.getRegistrations();
     res.status(200).json({ registrations });
   } catch (error) {
-    console.error("Get Pending Registrations Error:", error);
-    res.status(500).json({ message: "Unable to fetch pending registrations." });
+    console.error("Get Registrations Error:", error);
+    res.status(500).json({ message: "Unable to fetch users and registration requests." });
   }
 };
 

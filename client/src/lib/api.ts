@@ -93,8 +93,8 @@ export const adminAPI = {
     requireGstin?: boolean;
   }) => api.post<{ policyRule: PolicyRule }>("/admin/policies", data),
   getAuditLogs: () => api.get<{ auditLogs: AuditLog[] }>("/admin/audit-logs"),
-  getPendingRegistrations: () =>
-    api.get<{ registrations: RegistrationRequest[] }>("/admin/registrations/pending"),
+  getRegistrations: () =>
+    api.get<{ registrations: RegistrationRequest[] }>("/admin/registrations"),
   updateRegistrationStatus: (
     id: string,
     status: Exclude<RegistrationStatus, "PENDING">

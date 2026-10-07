@@ -51,19 +51,21 @@ export default function DashboardLayout({
   const isManager = ["MANAGER", "HOD", "FINANCE", "SUPERADMIN"].includes(
     user.role
   );
-  const canAccessFinance = ["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role);
-
   const navItems = [
     {
       label: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
     },
-    {
-      label: "My Claims",
-      href: "/dashboard/claims",
-      icon: FileText,
-    },
+    ...(user.role !== "SUPERADMIN"
+      ? [
+          {
+            label: "My Claims",
+            href: "/dashboard/claims",
+            icon: FileText,
+          },
+        ]
+      : []),
     ...(!["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role)
       ? [
           {
@@ -82,7 +84,7 @@ export default function DashboardLayout({
           },
         ]
       : []),
-    ...(canAccessFinance
+    ...(user.role === "FINANCE_ADMIN"
       ? [
           {
             label: "Finance",

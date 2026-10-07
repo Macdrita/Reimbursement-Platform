@@ -82,6 +82,7 @@ export interface RegistrationRequest {
   email: string;
   name: string;
   role: Role;
+  registrationStatus: RegistrationStatus;
   managerId: string | null;
   manager?: { id: string; name: string } | null;
   createdAt: string;

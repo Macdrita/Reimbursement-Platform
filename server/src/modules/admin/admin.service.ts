@@ -14,8 +14,7 @@ export const getPolicyRules = () => adminRepository.listPolicyRules();
 
 export const getAuditLogs = () => adminRepository.listAuditLogs();
 
-export const getPendingRegistrations = () =>
-  adminRepository.listPendingRegistrations();
+export const getRegistrations = () => adminRepository.listRegistrations();
 
 export const createDepartment = async (
   data: CreateDepartmentInput,

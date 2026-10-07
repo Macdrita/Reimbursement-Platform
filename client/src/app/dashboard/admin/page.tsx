@@ -133,10 +133,14 @@ export default function AdminPage() {
     enabled: isSuperadmin,
   });
   const registrationsQuery = useQuery({
-    queryKey: ["admin", "registrations", "pending"],
-    queryFn: async () => (await adminAPI.getPendingRegistrations()).data.registrations,
+    queryKey: ["admin", "registrations"],
+    queryFn: async () => (await adminAPI.getRegistrations()).data.registrations,
     enabled: isSuperadmin,
   });
+  const pendingRegistrationCount =
+    registrationsQuery.data?.filter(
+      (registration) => registration.registrationStatus === "PENDING"
+    ).length ?? 0;
   const hodsQuery = useQuery({
     queryKey: ["admin", "department-hods"],
     queryFn: async () => (await usersAPI.getHODs()).data.hods as { id: string; name: string }[],
@@ -233,7 +237,7 @@ export default function AdminPage() {
     mutationFn: ({ id, status }: { id: string; status: Exclude<RegistrationStatus, "PENDING"> }) =>
       adminAPI.updateRegistrationStatus(id, status),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "registrations", "pending"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "registrations"] });
       void queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] });
     },
   });
@@ -329,8 +333,10 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="registrations" className="gap-2 px-4 py-2 text-white/55 data-active:text-white">
               <ShieldCheck className="size-4" /> Registration Requests
-              {registrationsQuery.data && registrationsQuery.data.length > 0 && (
-                <span className="rounded-full bg-rose-500/20 px-1.5 text-xs text-rose-200">{registrationsQuery.data.length}</span>
+              {pendingRegistrationCount > 0 && (
+                <span className="rounded-full bg-rose-500/20 px-1.5 text-xs text-rose-200">
+                  {pendingRegistrationCount}
+                </span>
               )}
             </TabsTrigger>
           </TabsList>
@@ -487,9 +493,9 @@ export default function AdminPage() {
           <TabsContent value="registrations">
             <Card className="overflow-hidden border-white/[0.07] bg-[#12121e]/70">
               <CardHeader className="border-b border-white/[0.06]">
-                <CardTitle className="text-lg text-white">Pending registrations</CardTitle>
+                <CardTitle className="text-lg text-white">Users and registration requests</CardTitle>
                 <CardDescription className="mt-1 text-white/40">
-                  Approve accounts, reject requests, or permanently blacklist registrations.
+                  Review pending requests or blacklist existing users.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -516,14 +522,33 @@ export default function AdminPage() {
                               <p className="font-medium text-white">{registration.name}</p>
                               <p className="mt-1 text-xs text-white/40">{registration.email}</p>
                             </TableCell>
-                            <TableCell><Badge variant="outline" className="border-white/10 text-white/65">Employee</Badge></TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="border-white/10 text-white/65">
+                                {registration.role.replaceAll("_", " ")}
+                              </Badge>
+                              <p className="mt-1 text-xs text-white/40">
+                                {registration.registrationStatus.replaceAll("_", " ")}
+                              </p>
+                            </TableCell>
                             <TableCell className="text-sm text-white/50">{formatDate(registration.createdAt)}</TableCell>
                             <TableCell className="pr-5">
-                              <div className="flex justify-end gap-2">
-                                <Button size="sm" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "APPROVED" })} className="bg-emerald-600 text-white hover:bg-emerald-500">Approve</Button>
-                                <Button size="sm" variant="outline" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "REJECTED" })} className="border-white/10 text-white/65">Reject</Button>
-                                <Button size="sm" variant="destructive" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "BLACKLISTED" })}>Blacklist</Button>
-                              </div>
+                              {registration.registrationStatus === "PENDING" ? (
+                                <div className="flex justify-end gap-2">
+                                  <Button size="sm" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "APPROVED" })} className="bg-emerald-600 text-white hover:bg-emerald-500">Approve</Button>
+                                  <Button size="sm" variant="outline" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "REJECTED" })} className="border-white/10 text-white/65">Reject</Button>
+                                  <Button size="sm" variant="destructive" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "BLACKLISTED" })}>Blacklist</Button>
+                                </div>
+                              ) : registration.registrationStatus === "APPROVED" ? (
+                                <div className="flex justify-end">
+                                  <Button size="sm" variant="destructive" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "BLACKLISTED" })}>Blacklist user</Button>
+                                </div>
+                              ) : registration.registrationStatus === "BLACKLISTED" ? (
+                                <div className="flex justify-end">
+                                  <Button size="sm" variant="outline" disabled={reviewRegistration.isPending} onClick={() => reviewRegistration.mutate({ id: registration.id, status: "APPROVED" })} className="border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10">Undo blacklist</Button>
+                                </div>
+                              ) : (
+                                <span className="block text-right text-xs text-white/35">No actions available</span>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
