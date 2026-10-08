@@ -22,6 +22,7 @@ import {
   IndianRupee,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getRoleHomePath } from "@/lib/navigation";
 
 const statusConfig = {
   PENDING: {
@@ -55,13 +56,17 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const isManager = user
-    ? ["MANAGER", "HOD", "FINANCE", "SUPERADMIN"].includes(user.role)
+    ? ["MANAGER", "HOD", "FINANCE"].includes(user.role)
     : false;
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
       router.push("/login");
+      return;
+    }
+    if (["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role)) {
+      router.replace(getRoleHomePath(user.role));
       return;
     }
 
@@ -83,7 +88,13 @@ export default function DashboardPage() {
     fetchData();
   }, [user, authLoading, isManager, router]);
 
-  if (authLoading || !user) return null;
+  if (
+    authLoading ||
+    !user ||
+    ["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role)
+  ) {
+    return null;
+  }
 
   const totalAmount = claims.reduce((sum, c) => sum + c.amount, 0);
   const approvedAmount = claims

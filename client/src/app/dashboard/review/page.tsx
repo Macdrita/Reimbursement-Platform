@@ -42,6 +42,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getRoleHomePath } from "@/lib/navigation";
 
 const statusConfig = {
   PENDING: {
@@ -88,7 +89,7 @@ export default function ReviewClaimsPage() {
     }
 
     if (!["MANAGER", "HOD", "FINANCE", "SUPERADMIN"].includes(user.role)) {
-      router.push("/dashboard");
+      router.replace(getRoleHomePath(user.role));
       return;
     }
 

@@ -1,20 +1,22 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   FileText,
   LogOut,
   ClipboardCheck,
   Receipt,
-  User,
   ChevronDown,
   Wallet,
-  ShieldCheck,
+  Building2,
+  SlidersHorizontal,
+  ScrollText,
+  UserRound,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +27,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { adminAPI } from "@/lib/api";
 
 const roleColors: Record<string, string> = {
   EMPLOYEE: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -41,23 +44,33 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, logout } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
+  const registrationsQuery = useQuery({
+    queryKey: ["admin", "registrations"],
+    queryFn: async () => (await adminAPI.getRegistrations()).data.registrations,
+    enabled: user?.role === "SUPERADMIN",
+  });
+  const pendingRegistrationCount =
+    registrationsQuery.data?.filter(
+      (registration) => registration.registrationStatus === "PENDING"
+    ).length ?? 0;
 
   if (!user) {
     return null;
   }
 
-  const isManager = ["MANAGER", "HOD", "FINANCE", "SUPERADMIN"].includes(
-    user.role
-  );
+  const isManager = ["MANAGER", "HOD", "FINANCE"].includes(user.role);
   const navItems = [
-    {
-      label: "Dashboard",
-      href: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    ...(user.role !== "SUPERADMIN"
+    ...(!["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role)
+      ? [
+          {
+            label: "Dashboard",
+            href: "/dashboard",
+            icon: LayoutDashboard,
+          },
+        ]
+      : []),
+    ...(!["FINANCE_ADMIN", "SUPERADMIN"].includes(user.role)
       ? [
           {
             label: "My Claims",
@@ -96,9 +109,24 @@ export default function DashboardLayout({
     ...(user.role === "SUPERADMIN"
       ? [
           {
-            label: "Administration",
-            href: "/dashboard/admin",
-            icon: ShieldCheck,
+            label: "Department Management",
+            href: "/dashboard/admin/departments",
+            icon: Building2,
+          },
+          {
+            label: "Spend Policies",
+            href: "/dashboard/admin/policies",
+            icon: SlidersHorizontal,
+          },
+          {
+            label: "Audit Logs",
+            href: "/dashboard/admin/audit",
+            icon: ScrollText,
+          },
+          {
+            label: "Registration Requests",
+            href: "/dashboard/admin/registrations",
+            icon: UserRound,
           },
         ]
       : []),
@@ -156,8 +184,24 @@ export default function DashboardLayout({
                     }`}
                   />
                   {item.label}
+                  {item.href === "/dashboard/admin/registrations" &&
+                    pendingRegistrationCount > 0 && (
+                      <span
+                        aria-label={`${pendingRegistrationCount} pending registration requests`}
+                        className="ml-auto rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-200"
+                      >
+                        {pendingRegistrationCount}
+                      </span>
+                    )}
                   {isActive && (
-                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-violet-400 shadow-sm shadow-violet-400/50" />
+                    <div
+                      className={`h-1.5 w-1.5 rounded-full bg-violet-400 shadow-sm shadow-violet-400/50 ${
+                        item.href === "/dashboard/admin/registrations" &&
+                        pendingRegistrationCount > 0
+                          ? ""
+                          : "ml-auto"
+                      }`}
+                    />
                   )}
                 </div>
               </Link>

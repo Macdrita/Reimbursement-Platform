@@ -25,6 +25,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { financeAPI } from "@/lib/api";
 import { Claim } from "@/lib/types";
+import { getRoleHomePath } from "@/lib/navigation";
 
 const financeRoles = ["FINANCE_ADMIN", "SUPERADMIN"];
 const currency = new Intl.NumberFormat("en-IN", {
@@ -59,7 +60,7 @@ export default function FinancePage() {
     if (!user) {
       router.replace("/login");
     } else if (!financeRoles.includes(user.role)) {
-      router.replace("/dashboard");
+      router.replace(getRoleHomePath(user.role));
     }
   }, [authLoading, router, user]);
 

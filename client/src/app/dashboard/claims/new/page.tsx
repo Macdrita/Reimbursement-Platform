@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Upload, Loader2, CheckCircle2, FileImage, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getRoleHomePath } from "@/lib/navigation";
 
 export default function NewClaimPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -33,7 +34,7 @@ export default function NewClaimPage() {
 
   useEffect(() => {
     if (!authLoading && user && !canSubmitClaim) {
-      router.replace("/dashboard");
+      router.replace(getRoleHomePath(user.role));
     }
   }, [authLoading, canSubmitClaim, router, user]);
 

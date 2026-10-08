@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { getRoleHomePath } from "@/lib/navigation";
 
 export default function HomePage() {
   const { user, isLoading } = useAuth();
@@ -12,9 +13,9 @@ export default function HomePage() {
     if (isLoading) return;
 
     if (user) {
-      router.push("/dashboard");
+      router.replace(getRoleHomePath(user.role));
     } else {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [user, isLoading, router]);
 

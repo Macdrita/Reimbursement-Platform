@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Receipt, Eye, EyeOff, Loader2 } from "lucide-react";
+import { getRoleHomePath } from "@/lib/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -31,8 +32,8 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      router.push("/dashboard");
+      const user = await login(email, password);
+      router.replace(getRoleHomePath(user.role));
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(
