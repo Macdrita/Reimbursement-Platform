@@ -1,5 +1,25 @@
 # Server configuration
 
+## Vercel deployment
+
+The repository root `vercel.json` defines two services: the Next.js `client`
+and the Express `server`. Requests to `/api/*` and `/uploads/*` are routed to
+the server; all other paths are routed to the client. The client uses the
+same-origin `/api` path in production, so leave `NEXT_PUBLIC_API_URL` unset on
+Vercel. Local development continues to use `http://localhost:5000` by default.
+The server build generates Prisma Client before compiling TypeScript.
+
+The current receipt upload middleware writes to local disk. Vercel function
+filesystems are not durable across requests, so receipt uploads need persistent
+object storage before relying on uploads in a Vercel deployment. The
+`/uploads/*` rewrite preserves the app's receipt URL path but does not provide
+persistent storage.
+
+Set server secrets and database connection variables in the Vercel project
+environment, and apply database migrations as a separate deployment operation.
+No service binding is needed: browser requests use the public same-origin
+rewrites, and the server currently makes no calls to another Vercel service.
+
 ## RazorpayX test payouts
 
 The finance dashboard sends payout requests to RazorpayX in test mode when a

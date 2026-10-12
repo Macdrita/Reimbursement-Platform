@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { claimsAPI } from "@/lib/api";
+import { API_BASE_URL, claimsAPI } from "@/lib/api";
 import { Claim } from "@/lib/types";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
@@ -54,8 +54,6 @@ const statusConfig = {
     color: "bg-red-500/15 text-red-400 border-red-500/25",
   },
 };
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function MyClaimsPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -262,7 +260,7 @@ export default function MyClaimsPage() {
                 )}
 
                 <a
-                  href={`${API_BASE}${selectedClaim.receiptUrl}`}
+                  href={`${API_BASE_URL}${selectedClaim.receiptUrl}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-violet-400 hover:text-violet-300 transition-colors"
