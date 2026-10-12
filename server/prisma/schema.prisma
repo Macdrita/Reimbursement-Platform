@@ -32,14 +32,35 @@ enum PayoutBatchStatus {
   FAILED
 }
 
+enum PayoutProvider {
+  DEMO
+  RAZORPAYX_TEST
+}
+
+model PayoutTransaction {
+  id               String            @id @default(uuid())
+  batchId          String
+  batch            PayoutBatch       @relation(fields: [batchId], references: [id])
+  employeeId       String
+  employee         User              @relation(fields: [employeeId], references: [id])
+  amount           Float
+  status           PayoutBatchStatus @default(PROCESSING)
+  referenceId      String            @unique
+  razorpayPayoutId String?           @unique
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([batchId])
+}
+
 model Department {
-  id          String   @id @default(uuid())
-  name        String
-  code        String   @unique
-  budget      Float    @default(0.0)
-  hodId       String?
-  hod         User?    @relation("DepartmentHod", fields: [hodId], references: [id])
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  budget    Float    @default(0.0)
+  hodId     String?
+  hod       User?    @relation("DepartmentHod", fields: [hodId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 model PolicyRule {
@@ -51,13 +72,15 @@ model PolicyRule {
 }
 
 model PayoutBatch {
-  id           String            @id @default(uuid())
-  status       PayoutBatchStatus @default(DRAFT)
+  id           String              @id @default(uuid())
+  status       PayoutBatchStatus   @default(DRAFT)
+  provider     PayoutProvider      @default(DEMO)
   totalAmount  Float
   executedById String
-  executedBy   User              @relation(fields: [executedById], references: [id])
+  executedBy   User                @relation(fields: [executedById], references: [id])
   claims       Claim[]
-  createdAt    DateTime          @default(now())
+  transactions PayoutTransaction[]
+  createdAt    DateTime            @default(now())
 }
 
 model AuditLog {
@@ -77,46 +100,47 @@ enum ClaimStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(EMPLOYEE)
+  id                 String             @id @default(uuid())
+  email              String             @unique
+  password           String
+  name               String
+  role               Role               @default(EMPLOYEE)
   registrationStatus RegistrationStatus @default(APPROVED)
-  
-  // Hierarchical approval relationship (Self-referencing manager relation)
-  managerId String?
-  manager   User?    @relation("ManagerSubordinates", fields: [managerId], references: [id])
-  subordinates User[] @relation("ManagerSubordinates")
 
-  claimsSubmitted Claim[] @relation("SubmittedClaims")
-  claimsReviewed  Claim[] @relation("ReviewedClaims")
-  claimsRedirectedTo Claim[] @relation("RedirectedClaims")
-  ledDepartments Department[] @relation("DepartmentHod")
-  payoutBatches  PayoutBatch[]
-  auditLogs      AuditLog[]
+  // Hierarchical approval relationship (Self-referencing manager relation)
+  managerId    String?
+  manager      User?   @relation("ManagerSubordinates", fields: [managerId], references: [id])
+  subordinates User[]  @relation("ManagerSubordinates")
+
+  claimsSubmitted    Claim[]             @relation("SubmittedClaims")
+  claimsReviewed     Claim[]             @relation("ReviewedClaims")
+  claimsRedirectedTo Claim[]             @relation("RedirectedClaims")
+  ledDepartments     Department[]        @relation("DepartmentHod")
+  payoutBatches      PayoutBatch[]
+  payoutTransactions PayoutTransaction[]
+  auditLogs          AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Claim {
-  id            String      @id @default(uuid())
-  title         String
-  description   String?
-  amount        Float
-  receiptUrl    String
-  status        ClaimStatus @default(PENDING)
-  
-  employeeId    String
-  employee      User        @relation("SubmittedClaims", fields: [employeeId], references: [id])
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  amount      Float
+  receiptUrl  String
+  status      ClaimStatus @default(PENDING)
 
-  reviewerId    String?
-  reviewer      User?       @relation("ReviewedClaims", fields: [reviewerId], references: [id])
+  employeeId String
+  employee   User   @relation("SubmittedClaims", fields: [employeeId], references: [id])
 
-  isRedirected   Boolean     @default(false)
+  reviewerId String?
+  reviewer   User?   @relation("ReviewedClaims", fields: [reviewerId], references: [id])
+
+  isRedirected   Boolean @default(false)
   redirectedToId String?
-  redirectedTo   User?       @relation("RedirectedClaims", fields: [redirectedToId], references: [id])
+  redirectedTo   User?   @relation("RedirectedClaims", fields: [redirectedToId], references: [id])
   redirectReason String?
 
   payoutBatchId String?
@@ -124,6 +148,6 @@ model Claim {
   isFlagged     Boolean      @default(false)
 
   reviewComment String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

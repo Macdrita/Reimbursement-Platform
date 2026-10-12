@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AuditLog, Claim, Department, PolicyRule, PayoutBatch, RegistrationRequest, RegistrationStatus, Role } from "./types";
+import type { AuditLog, Claim, Department, PolicyRule, PayoutBatch, PayoutExecutionResponse, RegistrationRequest, RegistrationStatus, Role } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -75,8 +75,9 @@ export const usersAPI = {
 
 export const financeAPI = {
   getApprovedClaims: () => api.get<{ claims: Claim[] }>("/finance/approved-claims"),
+  getPayoutBatches: () => api.get<{ batches: PayoutBatch[] }>("/finance/batches"),
   executeBatch: (claimIds: string[]) =>
-    api.post<{ payoutBatch: PayoutBatch }>("/finance/batches/execute", { claimIds }),
+    api.post<PayoutExecutionResponse>("/finance/batches/execute", { claimIds }),
 };
 
 export const adminAPI = {

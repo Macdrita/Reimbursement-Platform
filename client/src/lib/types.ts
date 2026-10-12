@@ -109,8 +109,24 @@ export interface AuditLog {
 export interface PayoutBatch {
   id: string;
   status: "DRAFT" | "PROCESSING" | "COMPLETED" | "FAILED";
+  provider: "DEMO" | "RAZORPAYX_TEST";
   totalAmount: number;
   executedById: string;
   createdAt: string;
-  claimIds: string[];
+  transactions: PayoutTransaction[];
+}
+
+export interface PayoutTransaction {
+  id: string;
+  employeeId: string;
+  amount: number;
+  status: "DRAFT" | "PROCESSING" | "COMPLETED" | "FAILED";
+  razorpayPayoutId: string | null;
+  referenceId: string;
+  employee?: { id: string; name: string; email: string };
+}
+
+export interface PayoutExecutionResponse {
+  payoutBatch: PayoutBatch;
+  failures: { employeeId: string; message: string }[];
 }

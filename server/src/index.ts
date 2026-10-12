@@ -7,6 +7,7 @@ import authRoutes from "./routes/authRoutes";
 import claimRoutes from "./routes/claimRoutes";
 import userRoutes from "./routes/userRoutes";
 import financeRoutes from "./modules/finance/finance.routes";
+import { handleRazorpayWebhook } from "./modules/finance/finance.controller";
 import adminRoutes from "./modules/admin/admin.routes";
 
 dotenv.config();
@@ -15,6 +16,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
+app.post(
+  "/api/finance/webhooks/razorpay",
+  express.raw({ type: "application/json" }),
+  handleRazorpayWebhook
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
